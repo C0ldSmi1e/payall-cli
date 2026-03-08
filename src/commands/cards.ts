@@ -53,12 +53,19 @@ interface BoundCard {
 
 interface CardDetailResponse {
   card_number: string;
-  cvv: string;
-  expiry_date: string;
-  card_balance: number | string;
-  brand: string;
-  currency: string;
-  status: string;
+  card_bin: string;
+  card_cvv: string;
+  expiry_month: number | string;
+  expiry_year: number | string;
+  first_name: string;
+  last_name: string;
+  country_code: string;
+  state: string;
+  city: string;
+  address: string;
+  zipcode: string;
+  card_name: string;
+  card_image_url: string;
   [key: string]: unknown;
 }
 
@@ -365,8 +372,9 @@ export function registerCardCommands(program: Command) {
   // --- cards detail <binding_id> ---
   cards
     .command("detail <binding_id>")
-    .description("Show card details (number, CVV, balance)")
+    .description("Show full card details (number, CVV, expiry, billing address)")
     .option("--reveal", "Show full card number and CVV")
+    .option("--json", "Output as JSON (for programmatic use)")
     .action(async (bindingId: string, opts) => {
       const spinner = ora("Loading card detail...").start();
       try {
@@ -381,6 +389,27 @@ export function registerCardCommands(program: Command) {
           return;
         }
 
+        // JSON output for programmatic use by agents
+        if (opts.json) {
+          const output: Record<string, unknown> = {
+            card_name: data.card_name,
+            card_number: opts.reveal ? data.card_number : `****${(data.card_number || "").slice(-4)}`,
+            card_cvv: opts.reveal ? data.card_cvv : "***",
+            expiry_month: data.expiry_month,
+            expiry_year: data.expiry_year,
+            card_bin: data.card_bin,
+            first_name: data.first_name,
+            last_name: data.last_name,
+            address: data.address,
+            city: data.city,
+            state: data.state,
+            zipcode: data.zipcode,
+            country_code: data.country_code,
+          };
+          console.log(JSON.stringify(output, null, 2));
+          return;
+        }
+
         const mask = (val: string) => {
           if (opts.reveal) return val;
           if (!val) return chalk.dim("-");
@@ -388,16 +417,27 @@ export function registerCardCommands(program: Command) {
           return "****";
         };
 
-        console.log(chalk.bold.cyan("\n  Card Detail\n"));
+        const expiry = data.expiry_month && data.expiry_year
+          ? `${String(data.expiry_month).padStart(2, "0")}/${data.expiry_year}`
+          : "-";
+
+        console.log(chalk.bold.cyan(`\n  ${data.card_name || "Card Detail"}\n`));
 
         renderKeyValue([
           ["Card Number", mask(data.card_number)],
-          ["CVV", opts.reveal ? (data.cvv || "-") : "***"],
-          ["Expiry", data.expiry_date || "-"],
-          ["Brand", String(data.brand || "-")],
-          ["Currency", String(data.currency || "-")],
-          ["Balance", formatCurrency(data.card_balance, data.currency)],
-          ["Status", formatStatus(String(data.status || "-"))],
+          ["CVV", opts.reveal ? (data.card_cvv || "-") : "***"],
+          ["Expiry", expiry],
+          ["Card BIN", data.card_bin || "-"],
+        ]);
+
+        console.log(chalk.bold("\n  Cardholder:"));
+        renderKeyValue([
+          ["Name", `${data.first_name || ""} ${data.last_name || ""}`.trim() || "-"],
+          ["Address", data.address || "-"],
+          ["City", data.city || "-"],
+          ["State", data.state || "-"],
+          ["Zip", data.zipcode || "-"],
+          ["Country", data.country_code || "-"],
         ]);
 
         if (!opts.reveal) {
