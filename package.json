@@ -1,0 +1,25 @@
+{
+  "name": "payall-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "payall": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun build src/cli.ts --outdir dist --target bun",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^13.1.0",
+    "inquirer": "^12.3.2",
+    "ora": "^8.1.1",
+    "viem": "^2.23.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.4",
+    "typescript": "^5.7.3"
+  }
+}
