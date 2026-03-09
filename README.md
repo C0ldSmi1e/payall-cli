@@ -159,7 +159,7 @@ Point your agent at the skill file or include these instructions in its system p
 
 **Key patterns your agent needs to know:**
 
-1. **Always `cd /Users/daniel/payall-dev/payall-cli` first**, then run `bun run src/cli.ts <command>`
+1. **Run `payall <command>`** from anywhere (globally linked)
 2. **Get card data as JSON** with `payall cards detail <binding_id> --reveal --json`
 3. **The binding ID** (from `payall cards my`) is different from the card catalog ID (from `payall cards list`)
 4. **Auth is required** for `cards my`, `cards detail`, `cards apply`, `cards topup`, `wallet *`, `transfer *`
