@@ -588,6 +588,180 @@ export function registerCardCommands(program: Command) {
       }
     });
 
+  // --- cards topup <binding_id> ---
+  cards
+    .command("topup <binding_id>")
+    .description("Top up a card balance with crypto")
+    .action(async (bindingId: string) => {
+      const creds = loadCredentials();
+      if (!creds) {
+        console.log(chalk.red("Not logged in. Run: payall auth login"));
+        return;
+      }
+
+      const spinner = ora("Loading card info...").start();
+      try {
+        // 1. Fetch user's bound cards to find this one
+        const { data: cardsResp } = await api<{ cards: BoundCard[] } | BoundCard[]>("userCards", { method: "GET" });
+        const boundCards = Array.isArray(cardsResp) ? cardsResp : (cardsResp as { cards: BoundCard[] })?.cards || [];
+        const boundCard = boundCards.find((c) => String(c.card_binding_id ?? (c as Record<string, unknown>).binding_id) === bindingId);
+
+        if (!boundCard) {
+          spinner.fail(`Card with binding ID ${bindingId} not found. Check your cards with: payall cards my`);
+          return;
+        }
+
+        const cardId = String(boundCard.payall_card_id ?? (boundCard as Record<string, unknown>).card_id);
+        const cardCurrency = boundCard.currency || (boundCard as Record<string, unknown>).card_currency as string || "USD";
+
+        // 2. Get card detail to obtain card_bin
+        const { data: detailData } = await api<CardDetailResponse>("cards/getCardDetail", {
+          body: { related_key: bindingId, need_verify: 0 },
+        });
+
+        spinner.stop();
+
+        if (!detailData?.card_bin) {
+          console.log(chalk.red("Could not retrieve card BIN. Try again later."));
+          return;
+        }
+
+        const cardBin = detailData.card_bin;
+        const lastFour = (detailData.card_number || "").slice(-4);
+        const displayName = boundCard.card_name || detailData.card_name || "Card";
+        const status = boundCard.status || (boundCard as Record<string, unknown>).card_status as string || "";
+
+        console.log(chalk.bold.cyan(`\n  ${displayName} (****${lastFour}) - ${cardCurrency} - ${status}`));
+        console.log();
+
+        // 3. Prompt for amount
+        const { amount } = await inquirer.prompt([
+          {
+            type: "input",
+            name: "amount",
+            message: "Amount (USDT):",
+            validate: (val: string) => {
+              const n = parseFloat(val);
+              if (isNaN(n) || n <= 0) return "Enter a positive number";
+              return true;
+            },
+          },
+        ]);
+
+        // 4. Fee quote
+        const feeSpinner = ora("Getting fee quote...").start();
+        const { data: feeData } = await api<FeeQuoteResponse>("cards/feeQuote", {
+          body: {
+            charge_type: "CARD_CHARGE",
+            card_id: cardId,
+            card_bin: cardBin,
+            amount,
+            card_currency: cardCurrency,
+          },
+          auth: false,
+        });
+        feeSpinner.stop();
+
+        if (feeData?.fee_info) {
+          const info = feeData.fee_info;
+          console.log(chalk.bold("\n  Fee quote:"));
+          const feeRate = info.charge_fee_rate ? `${(Number(info.charge_fee_rate) * 100).toFixed(1)}%` : "";
+          console.log(`    You send:       ${chalk.bold(amount)} USDT`);
+          if (info.charge_fee) console.log(`    Fee${feeRate ? ` (${feeRate})` : ""}:      ${info.charge_fee} USDT`);
+          if (info.card_amount) console.log(`    Card receives:  ${info.card_amount} ${cardCurrency}`);
+          if (info.exchange_rate && Number(info.exchange_rate) !== 1) {
+            console.log(`    Exchange rate:  ${info.exchange_rate}`);
+          }
+          console.log();
+        }
+
+        // 5. Select chain
+        const chainChoices = [
+          { name: "TRON (TRC20)", value: { chain: "TRON", coin_code: "USDT(TRON)" } },
+          { name: "BSC (BEP20)", value: { chain: "BSC", coin_code: "USDT(BSC)" } },
+          { name: "Ethereum (ERC20)", value: { chain: "ETH", coin_code: "USDT(ETH)" } },
+        ];
+
+        const { chainInfo } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "chainInfo",
+            message: "Select deposit network:",
+            choices: chainChoices,
+          },
+        ]);
+
+        // 6. Confirm
+        const { confirm } = await inquirer.prompt([
+          {
+            type: "confirm",
+            name: "confirm",
+            message: "Confirm topup?",
+            default: true,
+          },
+        ]);
+
+        if (!confirm) {
+          console.log(chalk.yellow("Cancelled."));
+          return;
+        }
+
+        // 7. preCharge
+        const preSpinner = ora("Creating topup order...").start();
+        await api<{ order_id: string }>("charge/preCharge", {
+          body: {
+            charge_type: "CARD_CHARGE",
+            card_id: cardId,
+            card_binding_id: bindingId,
+            card_currency: cardCurrency,
+          },
+        });
+        preSpinner.succeed("Topup order created!");
+
+        // 8. getChargeQrCode
+        const qrSpinner = ora("Getting deposit address...").start();
+        const { data: qrData } = await pathApi<{
+          address?: string;
+          deposit_address?: string;
+          min_deposit_amt?: string;
+          expired_time?: string;
+          [key: string]: unknown;
+        }>("charge/getChargeQrCode", {
+          body: {
+            coin_code: chainInfo.coin_code,
+            chain: chainInfo.chain,
+            charge_type: "CARD_CHARGE",
+            card_id: cardId,
+            card_binding_id: bindingId,
+          },
+        });
+        qrSpinner.stop();
+
+        const depositAddr = qrData?.deposit_address || qrData?.address || "";
+        if (depositAddr) {
+          console.log(chalk.bold.green(`\n  Deposit Address (${chainInfo.chain}):`));
+          console.log(chalk.bold(`  ${depositAddr}`));
+          if (qrData?.min_deposit_amt) {
+            console.log(chalk.dim(`  Minimum deposit: ${qrData.min_deposit_amt} USDT`));
+          }
+          if (qrData?.expired_time) {
+            console.log(chalk.dim(`  Expires: ${qrData.expired_time}`));
+          }
+          console.log(chalk.dim(`\n  Send ${amount} USDT to the address above.`));
+          console.log(chalk.dim("  Balance will update after confirmation."));
+          console.log(chalk.dim("  Check status with: payall cards my"));
+        } else {
+          console.log(chalk.yellow("  Could not get deposit address. Try again later."));
+        }
+
+        console.log();
+      } catch (err: unknown) {
+        spinner.fail("Topup failed");
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(chalk.red(msg));
+      }
+    });
+
   // --- cards apply <card_id> ---
   cards
     .command("apply <card_id>")
