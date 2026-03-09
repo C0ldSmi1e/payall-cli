@@ -2,20 +2,27 @@
 
 A terminal tool for managing crypto debit cards on the Payall platform. Browse a card marketplace, apply for cards funded with USDT, top up balances, check card details, and more — all from your terminal.
 
-## Build
+## Install
 
 ```bash
 bun install
 bun run build
+bun link
 ```
 
-This outputs `dist/cli.js`. Run it with:
+This builds the CLI and links it globally. Now run it from anywhere:
 
 ```bash
-bun run dist/cli.js <command>
+payall <command>
 ```
 
-During development, run directly from source:
+After code changes, just rebuild — the global link picks it up automatically:
+
+```bash
+bun run build
+```
+
+During development, run directly from source without building:
 
 ```bash
 bun run src/cli.ts <command>

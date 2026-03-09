@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "bun run src/cli.ts",
-    "build": "bun build src/cli.ts --outdir dist --target bun",
+    "build": "bun build src/cli.ts --outdir dist --target bun && chmod +x dist/cli.js",
     "test": "bun test"
   },
   "dependencies": {
