@@ -5,7 +5,6 @@ A terminal tool for managing crypto debit cards on the Payall platform. Browse a
 ## Build
 
 ```bash
-cd /Users/daniel/payall-dev/payall-cli
 bun install
 bun run build
 ```
