@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "I want to see what crypto cards are available that don't require KYC, sorted by rating",
-      "expected_output": "Runs: bun run src/cli.ts cards list --no-kyc --sort general",
+      "expected_output": "Runs: bun run src/cli.ts cards list --skip-kyc --sort general",
       "files": []
     },
     {

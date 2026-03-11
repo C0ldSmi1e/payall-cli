@@ -73,7 +73,7 @@ Your private key is signed locally and never sent to the server. Saved keys are 
 |---------|-------------|
 | `payall cards list` | Browse all cards |
 | `payall cards list --search "bit"` | Search by name |
-| `payall cards list --sort fees --no-kyc` | Sort and filter |
+| `payall cards list --sort fees --skip-kyc` | Sort and filter |
 | `payall cards info <card_id>` | Card details and fee breakdown |
 | `payall cards compare <id1> <id2>` | Side-by-side comparison |
 | `payall cards fees --card-id 23 --type OPEN_CARD` | Fee quote |

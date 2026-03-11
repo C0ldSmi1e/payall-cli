@@ -91,8 +91,8 @@ export function registerCardCommands(program: Command) {
     .option("-s, --search <keyword>", "Search by card name")
     .option("--sort <type>", "Sort by: general, benefit, privacy, fees")
     .option("--sort-dir <dir>", "Sort direction: asc, desc", "desc")
-    .option("--no-kyc", "Only show cards without KYC")
-    .option("--kyc", "Only show cards requiring KYC")
+    .option("--skip-kyc", "Only show cards without KYC")
+    .option("--kyc-only", "Only show cards requiring KYC")
     .action(async (opts) => {
       const spinner = ora("Loading cards...").start();
       try {
@@ -100,10 +100,9 @@ export function registerCardCommands(program: Command) {
         if (opts.search) params.set("keyword", opts.search);
         if (opts.sort) params.set("sort_type", opts.sort);
         if (opts.sortDir) params.set("sort_direction", opts.sortDir);
-        if (opts.noKyc === false) {
-          // --no-kyc flag was explicitly passed
+        if (opts.skipKyc) {
           params.set("filters", JSON.stringify({ no_kyc: 1 }));
-        } else if (opts.kyc) {
+        } else if (opts.kycOnly) {
           params.set("filters", JSON.stringify({ kyc_required: 1 }));
         }
 

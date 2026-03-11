@@ -47,8 +47,8 @@ payall cards list                        # List all marketplace cards
 payall cards list --search "bit"         # Search by card name
 payall cards list --sort general         # Sort by: general, benefit, privacy, fees
 payall cards list --sort-dir asc         # Sort direction: asc, desc
-payall cards list --no-kyc               # Only cards without KYC requirement
-payall cards list --kyc                  # Only cards requiring KYC
+payall cards list --skip-kyc              # Only cards without KYC requirement
+payall cards list --kyc-only             # Only cards requiring KYC
 payall cards info <card_id>              # Full card details + fees
 payall cards compare <id1> <id2>         # Side-by-side comparison table
 payall cards fees                        # Fee quote (defaults to card 23, OPEN_CARD)
@@ -181,13 +181,19 @@ The CLI handles both transparently. Error code `4001` means unauthorized (token 
 3. `payall cards detail <binding_id> --reveal` (see full card number)
 
 **Browsing without account:**
-- `payall cards list --no-kyc --sort fees`
+- `payall cards list --skip-kyc --sort fees`
 - `payall cards compare 23 39`
 - `payall cards fees --card-id 39 --type OPEN_CARD`
 
 ## Display Guidelines
 
-When presenting card information to the user (from `cards list`, `cards my`, `cards detail`, etc.), omit internal fields like brand and card ID. Focus on what the user cares about: card name, balance, status, card number, fees, etc.
+When presenting card information to the user (from `cards list`, `cards my`, `cards detail`, etc.), do NOT show internal/technical fields like rank, id, binding_id, brand, rating, or other non-user-facing fields. Only show what the user actually cares about: card name, balance, status, card number, fees, etc.
+
+## Card Application Guidelines
+
+Before applying for a card, always run `payall cards apply <card_id>` which calls `checkCanApply` first. If the card returns `can_apply = 0` (i.e. "not available for application via API"), do NOT retry or attempt workarounds. Instead, direct the user to open the card themselves on the web app: https://app.payall.pro
+
+Currently only cards **23** (Bit2Go) and **39** (MiPay) support API-based application. All other cards must be opened via the website.
 
 ## Troubleshooting
 
