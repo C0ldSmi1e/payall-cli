@@ -28,6 +28,7 @@ export function registerAuthCommands(program: Command) {
     .description("Login with EVM wallet (auto-registers if new)")
     .option("--save-key", "Save wallet private key (encrypted) for future logins")
     .option("--forget-key", "Remove saved wallet key before login")
+    .option("-k, --key <private_key>", "EVM private key (skips prompt)")
     .option("--invite <code>", "Invite code (for first-time registration)")
     .action(async (opts) => {
       try {
@@ -45,6 +46,18 @@ export function registerAuthCommands(program: Command) {
           const account = getAccountFromKey(savedKey);
           console.log(chalk.dim(`Using saved wallet ${formatAddress(account.address)}`));
           privateKey = savedKey;
+        }
+
+        // Use --key flag if provided
+        if (!privateKey && opts.key) {
+          const keyInput = opts.key.trim();
+          try {
+            getAccountFromKey(keyInput);
+            privateKey = keyInput;
+          } catch {
+            console.error(chalk.red("Invalid private key format"));
+            process.exit(1);
+          }
         }
 
         // Prompt for key if not available

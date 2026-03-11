@@ -59,6 +59,7 @@ payall cards topup <binding_id>
 |---------|-------------|
 | `payall auth login` | Sign in with EVM private key (auto-registers new wallets) |
 | `payall auth login --save-key` | Sign in and save encrypted key for future sessions |
+| `payall auth login --key <key> --save-key` | Non-interactive login (for agents) |
 | `payall auth login --invite CODE` | Sign in with referral code (first login only) |
 | `payall auth status` | Show current session info |
 | `payall auth logout` | Clear session and local credentials |
@@ -86,7 +87,9 @@ Your private key is signed locally and never sent to the server. Saved keys are 
 | `payall cards detail <binding_id> --reveal` | Full card number and CVV |
 | `payall cards detail <binding_id> --reveal --json` | JSON output for programmatic use |
 | `payall cards apply <card_id>` | Apply for a new card (interactive) |
+| `payall cards apply <card_id> --auto-fill --chain tron --yes` | Non-interactive apply (for agents) |
 | `payall cards topup <binding_id>` | Top up card balance with crypto (interactive) |
+| `payall cards topup <binding_id> --amount 50 --chain tron --yes` | Non-interactive topup (for agents) |
 | `payall cards collections` | List favorited cards |
 | `payall cards favorite <card_id>` | Toggle favorite |
 
@@ -168,11 +171,11 @@ Point your agent at the skill file or include these instructions in its system p
 **Agent workflow example — topping up a card:**
 
 ```
-1. Run: payall cards my              -> get the binding_id
-2. Run: payall cards topup <id>      -> interactive, needs stdin for prompts
+1. Run: payall cards my                                      -> get the binding_id
+2. Run: payall cards topup <id> --amount 50 --chain tron --yes  -> non-interactive, no prompts
 ```
 
-For non-interactive agent use, the agent should call the backend API directly using the endpoints documented in the skill file (`cards/feeQuote`, `charge/preCharge`, `charge/getChargeQrCode`).
+The `--amount`, `--chain`, and `--yes` flags bypass all interactive prompts, making it safe for AI agents to call directly.
 
 ## API
 

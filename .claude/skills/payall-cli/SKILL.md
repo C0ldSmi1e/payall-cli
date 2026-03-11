@@ -25,17 +25,18 @@ The CLI is globally installed. Just run `payall <command>` from anywhere.
 Authentication uses EVM wallet private key signing. A single login call handles both registration (new wallets auto-register) and login for existing users.
 
 ```
-payall auth login              # Prompt for private key, sign message, authenticate
-payall auth login --save-key   # Same, but save the encrypted private key for future use
-payall auth login --invite XYZ # Include referral code (first-time only)
-payall auth status             # Show current session (account, user_id, expiry, saved key)
-payall auth logout             # Clear server session + local credentials
-payall auth forget-key         # Remove saved private key from ~/.payall/
+payall auth login                              # Prompt for private key, sign message, authenticate
+payall auth login --save-key                   # Same, but save the encrypted private key for future use
+payall auth login --key <private_key> --save-key  # Non-interactive login (for agents)
+payall auth login --invite XYZ                 # Include referral code (first-time only)
+payall auth status                             # Show current session (account, user_id, expiry, saved key)
+payall auth logout                             # Clear server session + local credentials
+payall auth forget-key                         # Remove saved private key from ~/.payall/
 ```
 
 **Login flow**: User provides EVM private key -> CLI signs a message locally (key never sent to server) -> sends signature + wallet address to API -> receives JWT (180-day expiry) -> stores encrypted in ~/.payall/credentials.enc.
 
-If the user has previously run `--save-key`, subsequent `login` calls reuse the saved key automatically without prompting.
+If the user has previously run `--save-key`, subsequent `login` calls reuse the saved key automatically without prompting. The `--key` / `-k` flag allows passing the private key directly, skipping the interactive prompt (useful for agent automation).
 
 ### Card Commands
 
@@ -100,8 +101,14 @@ To get the binding_id, first run `payall cards my` and use the ID column.
 #### Topping Up a Card (auth required)
 
 ```
-payall cards topup <binding_id>         # Interactive card topup flow
+payall cards topup <binding_id>                                    # Interactive card topup flow
+payall cards topup <binding_id> --amount 50 --chain tron --yes     # Non-interactive (for agents)
 ```
+
+**Non-interactive flags** (use all three to skip all prompts):
+- `--amount <amount>` / `-a` — Topup amount in USDT
+- `--chain <chain>` / `-c` — Deposit network: `tron`, `bsc`, `eth`
+- `--yes` / `-y` — Skip confirmation prompt
 
 The topup flow:
 1. Fetches the bound card info (from `userCards` + `getCardDetail`)
@@ -117,10 +124,21 @@ The `<binding_id>` is the ID column from `payall cards my`.
 #### Applying for a Card (auth required)
 
 ```
-payall cards apply <card_id>             # Interactive card application flow
+payall cards apply <card_id>                                    # Interactive card application flow
+payall cards apply <card_id> --auto-fill --chain tron --yes     # Non-interactive (for agents)
+payall cards apply <card_id> --bin 44742000 --currency USD --auto-fill --chain tron --yes  # Fully explicit
+payall cards apply <card_id> --first-name John --last-name Smith --email j@x.com --phone-prefix 1 --phone 5551234 --chain bsc --yes  # Manual cardholder info
 ```
 
-The apply flow is multi-step and interactive:
+**Non-interactive flags** (use `--auto-fill --chain <chain> --yes` to skip all prompts):
+- `--bin <card_bin>` / `-b` — Select card BIN (skips prompt; auto-selected if only one)
+- `--currency <currency>` — Card currency: USD, EUR, etc. (skips prompt; auto-selected if only one)
+- `--auto-fill` — Auto-generate cardholder info via AI (skips prompt)
+- `--first-name`, `--last-name`, `--email`, `--phone-prefix`, `--phone` — Manual cardholder info (all 5 required together; overrides `--auto-fill`)
+- `--chain <chain>` / `-c` — Deposit chain: `tron`, `bsc`, `eth` (auto-funds after order)
+- `--yes` / `-y` — Skip all confirmation prompts (without `--chain`, skips funding)
+
+The apply flow:
 1. Checks eligibility via `checkCanApply`
 2. Fetches available card BIN configurations (Visa/Mastercard, currencies, regions)
 3. User selects card type and currency
@@ -154,7 +172,8 @@ The CLI handles both transparently. Error code `4001` means unauthorized (token 
 
 **Topping up an existing card:**
 1. `payall cards my` (find the binding ID)
-2. `payall cards topup <binding_id>` (interactive: amount, fees, chain, deposit address)
+2. `payall cards topup <binding_id> --amount 50 --chain tron --yes` (non-interactive for agents)
+   Or: `payall cards topup <binding_id>` (interactive for humans)
 
 **Returning user checking cards:**
 1. `payall auth login` (reuses saved key if available)

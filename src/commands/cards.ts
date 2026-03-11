@@ -592,7 +592,10 @@ export function registerCardCommands(program: Command) {
   cards
     .command("topup <binding_id>")
     .description("Top up a card balance with crypto")
-    .action(async (bindingId: string) => {
+    .option("-a, --amount <amount>", "Topup amount in USDT (skips prompt)")
+    .option("-c, --chain <chain>", "Deposit chain: tron, bsc, eth (skips prompt)")
+    .option("-y, --yes", "Skip confirmation prompt")
+    .action(async (bindingId: string, opts: { amount?: string; chain?: string; yes?: boolean }) => {
       const creds = loadCredentials();
       if (!creds) {
         console.log(chalk.red("Not logged in. Run: payall auth login"));
@@ -634,19 +637,30 @@ export function registerCardCommands(program: Command) {
         console.log(chalk.bold.cyan(`\n  ${displayName} (****${lastFour}) - ${cardCurrency} - ${status}`));
         console.log();
 
-        // 3. Prompt for amount
-        const { amount } = await inquirer.prompt([
-          {
-            type: "input",
-            name: "amount",
-            message: "Amount (USDT):",
-            validate: (val: string) => {
-              const n = parseFloat(val);
-              if (isNaN(n) || n <= 0) return "Enter a positive number";
-              return true;
+        // 3. Prompt for amount (or use --amount flag)
+        let amount: string;
+        if (opts.amount) {
+          const n = parseFloat(opts.amount);
+          if (isNaN(n) || n <= 0) {
+            console.log(chalk.red("--amount must be a positive number"));
+            return;
+          }
+          amount = opts.amount;
+        } else {
+          const resp = await inquirer.prompt([
+            {
+              type: "input",
+              name: "amount",
+              message: "Amount (USDT):",
+              validate: (val: string) => {
+                const n = parseFloat(val);
+                if (isNaN(n) || n <= 0) return "Enter a positive number";
+                return true;
+              },
             },
-          },
-        ]);
+          ]);
+          amount = resp.amount;
+        }
 
         // 4. Fee quote
         const feeSpinner = ora("Getting fee quote...").start();
@@ -675,35 +689,54 @@ export function registerCardCommands(program: Command) {
           console.log();
         }
 
-        // 5. Select chain
-        const chainChoices = [
-          { name: "TRON (TRC20)", value: { chain: "TRON", coin_code: "USDT(TRON)" } },
-          { name: "BSC (BEP20)", value: { chain: "BSC", coin_code: "USDT(BSC)" } },
-          { name: "Ethereum (ERC20)", value: { chain: "ETH", coin_code: "USDT(ETH)" } },
-        ];
+        // 5. Select chain (or use --chain flag)
+        const chainMap: Record<string, { chain: string; coin_code: string }> = {
+          tron: { chain: "TRON", coin_code: "USDT(TRON)" },
+          bsc: { chain: "BSC", coin_code: "USDT(BSC)" },
+          eth: { chain: "ETH", coin_code: "USDT(ETH)" },
+        };
 
-        const { chainInfo } = await inquirer.prompt([
-          {
-            type: "list",
-            name: "chainInfo",
-            message: "Select deposit network:",
-            choices: chainChoices,
-          },
-        ]);
+        let chainInfo: { chain: string; coin_code: string };
+        if (opts.chain) {
+          const key = opts.chain.toLowerCase();
+          if (!chainMap[key]) {
+            console.log(chalk.red(`Invalid chain "${opts.chain}". Use: tron, bsc, eth`));
+            return;
+          }
+          chainInfo = chainMap[key];
+        } else {
+          const chainChoices = [
+            { name: "TRON (TRC20)", value: { chain: "TRON", coin_code: "USDT(TRON)" } },
+            { name: "BSC (BEP20)", value: { chain: "BSC", coin_code: "USDT(BSC)" } },
+            { name: "Ethereum (ERC20)", value: { chain: "ETH", coin_code: "USDT(ETH)" } },
+          ];
 
-        // 6. Confirm
-        const { confirm } = await inquirer.prompt([
-          {
-            type: "confirm",
-            name: "confirm",
-            message: "Confirm topup?",
-            default: true,
-          },
-        ]);
+          const resp = await inquirer.prompt([
+            {
+              type: "list",
+              name: "chainInfo",
+              message: "Select deposit network:",
+              choices: chainChoices,
+            },
+          ]);
+          chainInfo = resp.chainInfo;
+        }
 
-        if (!confirm) {
-          console.log(chalk.yellow("Cancelled."));
-          return;
+        // 6. Confirm (or skip with --yes flag)
+        if (!opts.yes) {
+          const { confirm } = await inquirer.prompt([
+            {
+              type: "confirm",
+              name: "confirm",
+              message: "Confirm topup?",
+              default: true,
+            },
+          ]);
+
+          if (!confirm) {
+            console.log(chalk.yellow("Cancelled."));
+            return;
+          }
         }
 
         // 7. preCharge
@@ -766,7 +799,21 @@ export function registerCardCommands(program: Command) {
   cards
     .command("apply <card_id>")
     .description("Apply for a card (opens a crypto-funded card)")
-    .action(async (cardId: string) => {
+    .option("-b, --bin <card_bin>", "Card BIN to select (skips prompt)")
+    .option("--currency <currency>", "Card currency: USD, EUR, etc. (skips prompt)")
+    .option("--auto-fill", "Auto-generate cardholder info (skips prompt)")
+    .option("--first-name <name>", "Cardholder first name")
+    .option("--last-name <name>", "Cardholder last name")
+    .option("--email <email>", "Cardholder email")
+    .option("--phone-prefix <prefix>", "Phone prefix e.g. 1")
+    .option("--phone <phone>", "Phone number")
+    .option("-c, --chain <chain>", "Deposit chain: tron, bsc, eth (skips prompt)")
+    .option("-y, --yes", "Skip all confirmation prompts")
+    .action(async (cardId: string, opts: {
+      bin?: string; currency?: string; autoFill?: boolean;
+      firstName?: string; lastName?: string; email?: string;
+      phonePrefix?: string; phone?: string; chain?: string; yes?: boolean;
+    }) => {
       const creds = loadCredentials();
       if (!creds) {
         console.log(chalk.red("Not logged in. Run: payall auth login"));
@@ -828,7 +875,16 @@ export function registerCardCommands(program: Command) {
         }));
 
         let selectedBin: CardBinSetting;
-        if (binChoices.length === 1) {
+        if (opts.bin) {
+          const match = cardbinSettings.find((b) => b.card_bin === opts.bin);
+          if (!match) {
+            const available = cardbinSettings.map((b) => b.card_bin).join(", ");
+            console.log(chalk.red(`Invalid BIN "${opts.bin}". Available: ${available}`));
+            return;
+          }
+          selectedBin = match;
+          console.log(chalk.dim(`  Card type: ${selectedBin.organization.toUpperCase()} (${selectedBin.card_bin}) - ${selectedBin.country}`));
+        } else if (binChoices.length === 1) {
           selectedBin = binChoices[0].value;
           console.log(chalk.dim(`  Card type: ${selectedBin.organization.toUpperCase()} (${selectedBin.card_bin}) - ${selectedBin.country}`));
         } else {
@@ -845,7 +901,14 @@ export function registerCardCommands(program: Command) {
 
         // 4. Let user pick currency if multiple available
         let cardCurrency: string;
-        if (selectedBin.currency.length > 1) {
+        if (opts.currency) {
+          const upper = opts.currency.toUpperCase();
+          if (!selectedBin.currency.includes(upper)) {
+            console.log(chalk.red(`Invalid currency "${opts.currency}". Available: ${selectedBin.currency.join(", ")}`));
+            return;
+          }
+          cardCurrency = upper;
+        } else if (selectedBin.currency.length > 1) {
           const { curr } = await inquirer.prompt([
             {
               type: "list",
@@ -866,18 +929,36 @@ export function registerCardCommands(program: Command) {
         console.log(chalk.dim(`  Currency: ${cardCurrency} | Expiry: ${expiryDate}`));
 
         // 6. Generate or collect cardholder info
-        const { autoFill } = await inquirer.prompt([
-          {
-            type: "confirm",
-            name: "autoFill",
-            message: "Generate cardholder info automatically?",
-            default: true,
-          },
-        ]);
+        const hasManualInfo = opts.firstName && opts.lastName && opts.email && opts.phonePrefix && opts.phone;
+        let useAutoFill: boolean;
+
+        if (hasManualInfo) {
+          useAutoFill = false;
+        } else if (opts.autoFill || opts.yes) {
+          useAutoFill = true;
+        } else {
+          const { autoFill } = await inquirer.prompt([
+            {
+              type: "confirm",
+              name: "autoFill",
+              message: "Generate cardholder info automatically?",
+              default: true,
+            },
+          ]);
+          useAutoFill = autoFill;
+        }
 
         let cardHolderInfo: Record<string, unknown>;
 
-        if (autoFill) {
+        if (hasManualInfo) {
+          cardHolderInfo = {
+            first_name: opts.firstName,
+            last_name: opts.lastName,
+            email: opts.email,
+            phone_prefix: opts.phonePrefix,
+            phone: opts.phone,
+          };
+        } else if (useAutoFill) {
           const fillSpinner = ora("Generating cardholder info...").start();
           const { data: fillData } = await api<{ card_holder_info: Record<string, unknown> }>(
             "cards/fillBindingInfoByAI",
@@ -900,18 +981,20 @@ export function registerCardCommands(program: Command) {
         console.log(chalk.dim(`  Phone: +${cardHolderInfo.phone_prefix} ${cardHolderInfo.phone}`));
 
         // 7. Confirm
-        const { confirm } = await inquirer.prompt([
-          {
-            type: "confirm",
-            name: "confirm",
-            message: "Confirm card application?",
-            default: true,
-          },
-        ]);
+        if (!opts.yes) {
+          const { confirm } = await inquirer.prompt([
+            {
+              type: "confirm",
+              name: "confirm",
+              message: "Confirm card application?",
+              default: true,
+            },
+          ]);
 
-        if (!confirm) {
-          console.log(chalk.yellow("Cancelled."));
-          return;
+          if (!confirm) {
+            console.log(chalk.yellow("Cancelled."));
+            return;
+          }
         }
 
         // 8. Call preCharge to create the order
@@ -941,31 +1024,57 @@ export function registerCardCommands(program: Command) {
         console.log(chalk.dim(`  Order ID: ${preChargeResult.order_id}`));
 
         // 9. Get deposit address / QR code
-        const { fundNow } = await inquirer.prompt([
-          {
-            type: "confirm",
-            name: "fundNow",
-            message: "Get deposit address to fund this card now?",
-            default: true,
-          },
-        ]);
+        const chainMap: Record<string, { chain: string; coin_code: string }> = {
+          tron: { chain: "TRON", coin_code: "USDT(TRON)" },
+          bsc: { chain: "BSC", coin_code: "USDT(BSC)" },
+          eth: { chain: "ETH", coin_code: "USDT(ETH)" },
+        };
 
-        if (fundNow) {
-          // Default to USDT on TRON (most common)
-          const chainChoices = [
-            { name: "TRON (TRC20)", value: { chain: "TRON", coin_code: "USDT(TRON)" } },
-            { name: "BSC (BEP20)", value: { chain: "BSC", coin_code: "USDT(BSC)" } },
-            { name: "Ethereum (ERC20)", value: { chain: "ETH", coin_code: "USDT(ETH)" } },
-          ];
+        let fundNow: boolean;
+        let chainInfo: { chain: string; coin_code: string } | undefined;
 
-          const { chainInfo } = await inquirer.prompt([
+        if (opts.chain) {
+          const key = opts.chain.toLowerCase();
+          if (!chainMap[key]) {
+            console.log(chalk.red(`Invalid chain "${opts.chain}". Use: tron, bsc, eth`));
+            return;
+          }
+          fundNow = true;
+          chainInfo = chainMap[key];
+        } else if (opts.yes) {
+          // --yes without --chain: skip funding
+          fundNow = false;
+        } else {
+          const resp = await inquirer.prompt([
             {
-              type: "list",
-              name: "chainInfo",
-              message: "Select deposit network:",
-              choices: chainChoices,
+              type: "confirm",
+              name: "fundNow",
+              message: "Get deposit address to fund this card now?",
+              default: true,
             },
           ]);
+          fundNow = resp.fundNow;
+
+          if (fundNow) {
+            const chainChoices = [
+              { name: "TRON (TRC20)", value: { chain: "TRON", coin_code: "USDT(TRON)" } },
+              { name: "BSC (BEP20)", value: { chain: "BSC", coin_code: "USDT(BSC)" } },
+              { name: "Ethereum (ERC20)", value: { chain: "ETH", coin_code: "USDT(ETH)" } },
+            ];
+
+            const chainResp = await inquirer.prompt([
+              {
+                type: "list",
+                name: "chainInfo",
+                message: "Select deposit network:",
+                choices: chainChoices,
+              },
+            ]);
+            chainInfo = chainResp.chainInfo;
+          }
+        }
+
+        if (fundNow && chainInfo) {
 
           const qrSpinner = ora("Getting deposit address...").start();
           try {
