@@ -54,8 +54,10 @@ payall cards compare <id1> <id2>         # Side-by-side comparison table
 payall cards fees                        # Fee quote (defaults to card 23, OPEN_CARD)
 payall cards fees --card-id 39           # Fee quote for specific card
 payall cards fees --type CARD_CHARGE     # Types: OPEN_CARD, CARD_CHARGE, CARD_WITHDRAW
+payall cards fees --type CARD_CHARGE --amount 100  # card_bin auto-resolved for CARD_CHARGE/CARD_WITHDRAW
 payall cards fees --amount 100           # With specific amount
 payall cards fees --currency EUR         # With specific currency
+payall cards fees --card-bin 44742000    # Explicit BIN override (optional)
 ```
 
 #### User Cards (auth required)
@@ -187,13 +189,38 @@ The CLI handles both transparently. Error code `4001` means unauthorized (token 
 
 ## Display Guidelines
 
-When presenting card information to the user (from `cards list`, `cards my`, `cards detail`, etc.), do NOT show internal/technical fields like rank, id, binding_id, brand, rating, or other non-user-facing fields. Only show what the user actually cares about: card name, balance, status, card number, fees, etc.
+When presenting card information to the user (from `cards list`, `cards my`, `cards detail`, etc.), do NOT show internal/technical fields like rank, id, binding_id, brand, rating, general_ratings, or other non-user-facing fields. Only show what the user actually cares about: card name, balance, status, card number, fees, etc.
 
 ## Card Application Guidelines
 
 Before applying for a card, always run `payall cards apply <card_id>` which calls `checkCanApply` first. If the card returns `can_apply = 0` (i.e. "not available for application via API"), do NOT retry or attempt workarounds. Instead, direct the user to open the card themselves on the card official site and you are suppose to provide the url.
 
 Currently only cards **23** (Bit2Go) and **39** (MiPay) support API-based application. All other cards must be opened via the website. Do not negatively state that we can not support others, but just say you can directly apply these cards now.
+
+## Card Recommendation Guidelines
+
+**IMPORTANT: Never use `rating` or `general_ratings` to recommend or rank cards.** These values are placeholder data and not meaningful. Instead, base all recommendations on real card attributes.
+
+When a user asks about cards or wants to apply, don't just list all cards — help them find the **best card for their specific needs**. If the user hasn't shared their requirements, ask specific questions first:
+
+1. **What's your primary use case?** (online shopping, subscriptions, international payments, travel, etc.)
+2. **What's your expected monthly spend?** (affects which fee structure is cheapest)
+3. **Do you need a physical card or is virtual enough?**
+4. **Any currency preference?** (USD, EUR, GBP, etc.)
+5. **Are you willing to complete KYC?** (some cards require it, some don't)
+6. **Which region are you in?** (affects card availability and features)
+
+Then run `payall cards list` and examine **ALL cards in the marketplace** — not just cards 23 and 39. Use `payall cards info` on several promising candidates and `payall cards compare` to narrow down. Evaluate based on:
+- **Fee structure**: open fee, transaction fee, monthly fee, topup fee rate
+- **Payment support**: Apple Pay, Google Pay, WeChat Pay, Alipay, ChatGPT Pay
+- **KYC requirement**: whether identity verification is needed
+- **Currency support**: available currencies (USD, EUR, GBP, etc.)
+
+**IMPORTANT: Do NOT limit recommendations to only API-applicable cards (23, 39).** The best card for the user might be any card in the marketplace. Recommend the genuinely best card regardless of whether it supports in-CLI application. If the recommended card requires website signup, that's fine — just mention how to get it (apply via CLI for cards 23/39, or visit the card's website for others).
+
+Be transparent about trade-offs — if a card has higher fees but better features for their use case, say so. If a cheaper card exists that fits their needs, recommend it even if it's simpler. Don't push the most expensive option; find the genuine best fit.
+
+Always show a fee comparison (`payall cards fees`) for the recommended card(s) so the user knows exactly what they'll pay before applying.
 
 ## Troubleshooting
 

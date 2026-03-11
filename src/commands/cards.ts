@@ -143,16 +143,6 @@ export function registerCardCommands(program: Command) {
             format: (v) => formatBoolean(v),
           },
           {
-            key: "general_ratings",
-            header: "Rating",
-            width: 9,
-            align: "right",
-            format: (v) => {
-              const n = Number(v);
-              return isNaN(n) ? chalk.dim("-") : n.toFixed(1);
-            },
-          },
-          {
             key: "fees",
             header: "Open Fee",
             width: 12,
@@ -213,7 +203,6 @@ export function registerCardCommands(program: Command) {
           ["Currency", String(card.currency || "-")],
           ["Type", String(card.card_type || "-")],
           ["KYC Required", card.kyc_required ? "Yes" : "No"],
-          ["Rating", card.general_ratings ? `${Number(card.general_ratings).toFixed(1)} / 5.0` : "-"],
           ["Google Pay", formatBoolean(card.google_pay_support)],
           ["Apple Pay", formatBoolean(card.apple_wallet_support)],
           ["WeChat Pay", formatBoolean(card.wechat_pay_support)],
@@ -280,7 +269,6 @@ export function registerCardCommands(program: Command) {
           ["Brand", String(a.brand || "-"), String(b.brand || "-")],
           ["Currency", String(a.currency || "-"), String(b.currency || "-")],
           ["KYC", a.kyc_required ? "Yes" : "No", b.kyc_required ? "Yes" : "No"],
-          ["Rating", a.general_ratings ? Number(a.general_ratings).toFixed(1) : "-", b.general_ratings ? Number(b.general_ratings).toFixed(1) : "-"],
           ["Issuance Fee", feeValue(feesA, "issuanceFee"), feeValue(feesB, "issuanceFee")],
           ["Annual Fee", feeValue(feesA, "annualFee"), feeValue(feesB, "annualFee")],
           ["Monthly Fee", feeValue(feesA, "monthlyFee"), feeValue(feesB, "monthlyFee")],
@@ -477,16 +465,6 @@ export function registerCardCommands(program: Command) {
           },
           { key: "brand", header: "Brand", width: 12 },
           { key: "currency", header: "Currency", width: 10 },
-          {
-            key: "general_ratings",
-            header: "Rating",
-            width: 9,
-            align: "right",
-            format: (v) => {
-              const n = Number(v);
-              return isNaN(n) ? chalk.dim("-") : n.toFixed(1);
-            },
-          },
         ]);
       } catch (err: unknown) {
         spinner.fail("Failed to load collections");
@@ -543,6 +521,23 @@ export function registerCardCommands(program: Command) {
         };
         if (opts.amount) body.amount = opts.amount;
         if (opts.cardBin) body.card_bin = opts.cardBin;
+
+        // Auto-resolve card_bin for CARD_CHARGE/CARD_WITHDRAW if not provided
+        if ((opts.type === "CARD_CHARGE" || opts.type === "CARD_WITHDRAW") && !opts.cardBin) {
+          const binRes = await pathApi<any[]>(
+            `cards/getCardbinSettings?card_id=${opts.cardId}`,
+            { method: "GET" }
+          );
+          const bins = binRes.data;
+          if (!bins || bins.length === 0) {
+            spinner.fail("No card BIN configurations found for this card");
+            return;
+          }
+          body.card_bin = bins[0].card_bin;
+          if (bins.length > 1) {
+            console.log(chalk.dim(`  Using BIN ${bins[0].card_bin} (${bins[0].country} ${bins[0].organization}). Override with --card-bin`));
+          }
+        }
 
         const { data } = await api<FeeQuoteResponse>("cards/feeQuote", {
           body,
