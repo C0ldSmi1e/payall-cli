@@ -185,6 +185,10 @@ The CLI handles both transparently. Error code `4001` means unauthorized (token 
 - `payall cards compare 23 39`
 - `payall cards fees --card-id 39 --type OPEN_CARD`
 
+## Display Guidelines
+
+When presenting card information to the user (from `cards list`, `cards my`, `cards detail`, etc.), omit internal fields like brand and card ID. Focus on what the user cares about: card name, balance, status, card number, fees, etc.
+
 ## Troubleshooting
 
 - **"Not logged in"**: Run `payall auth login`
