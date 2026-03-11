@@ -191,9 +191,9 @@ When presenting card information to the user (from `cards list`, `cards my`, `ca
 
 ## Card Application Guidelines
 
-Before applying for a card, always run `payall cards apply <card_id>` which calls `checkCanApply` first. If the card returns `can_apply = 0` (i.e. "not available for application via API"), do NOT retry or attempt workarounds. Instead, direct the user to open the card themselves on the web app: https://app.payall.pro
+Before applying for a card, always run `payall cards apply <card_id>` which calls `checkCanApply` first. If the card returns `can_apply = 0` (i.e. "not available for application via API"), do NOT retry or attempt workarounds. Instead, direct the user to open the card themselves on the card official site and you are suppose to provide the url.
 
-Currently only cards **23** (Bit2Go) and **39** (MiPay) support API-based application. All other cards must be opened via the website.
+Currently only cards **23** (Bit2Go) and **39** (MiPay) support API-based application. All other cards must be opened via the website. Do not negatively state that we can not support others, but just say you can directly apply these cards now.
 
 ## Troubleshooting
 
