@@ -5,6 +5,11 @@
   "bin": {
     "payall": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    ".claude/skills",
+    "README.md"
+  ],
   "scripts": {
     "dev": "bun run src/cli.ts",
     "build": "bun build src/cli.ts --outdir dist --target bun && chmod +x dist/cli.js",

@@ -5,24 +5,32 @@ A terminal tool for managing crypto debit cards on the Payall platform. Browse a
 ## Install
 
 ```bash
-bun install
-bun run build
-bun link
+npm install -g payall-cli
 ```
 
-This builds the CLI and links it globally. Now run it from anywhere:
+Or with Bun:
+
+```bash
+bun install -g payall-cli
+```
+
+Then run from anywhere:
 
 ```bash
 payall <command>
 ```
 
-After code changes, just rebuild — the global link picks it up automatically:
+### Development
 
 ```bash
+git clone https://github.com/user/payall-cli.git
+cd payall-cli
+bun install
 bun run build
+bun link
 ```
 
-During development, run directly from source without building:
+Run directly from source without building:
 
 ```bash
 bun run src/cli.ts <command>
