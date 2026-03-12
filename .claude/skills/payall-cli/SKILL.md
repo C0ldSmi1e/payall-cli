@@ -10,13 +10,13 @@ A terminal tool for managing crypto debit cards on the Payall platform. Users ca
 
 ## Setup
 
-- **Run command**: `payall <command>` (globally linked via `bun link`)
-- **Source**: `/Users/daniel/payall-dev/payall-cli`
+- **Install**: `npm install -g payall-cli` or `bun install -g payall-cli`
+- **Run command**: `payall <command>` (globally installed, works from anywhere)
 - **Runtime**: Bun
 - **API**: `https://api.payall.pro/v1/api`
 - **Credentials**: Stored encrypted at `~/.payall/`
 
-The CLI is globally installed. Just run `payall <command>` from anywhere.
+If `payall` is not found, install it first with the command above.
 
 ## Command Reference
 
