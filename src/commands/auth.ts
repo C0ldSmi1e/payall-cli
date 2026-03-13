@@ -117,8 +117,8 @@ export function registerAuthCommands(program: Command) {
           expires_at: expiresAt,
         });
 
-        // Save key if requested
-        if (opts.saveKey) {
+        // Save key if requested or if --key was passed explicitly
+        if (opts.saveKey || opts.key) {
           saveWalletKey(privateKey);
           spinner.succeed(
             chalk.green(`Logged in as ${formatAddress(wallet_address)}`) +
@@ -187,7 +187,8 @@ export function registerAuthCommands(program: Command) {
       }
 
       clearCredentials();
-      console.log(chalk.green("Local session cleared."));
+      clearWalletKey();
+      console.log(chalk.green("Local session and saved key cleared."));
     });
 
   auth

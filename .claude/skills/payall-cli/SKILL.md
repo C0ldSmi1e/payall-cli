@@ -27,16 +27,16 @@ Authentication uses EVM wallet private key signing. A single login call handles 
 ```
 payall auth login                              # Prompt for private key, sign message, authenticate
 payall auth login --save-key                   # Same, but save the encrypted private key for future use
-payall auth login --key <private_key> --save-key  # Non-interactive login (for agents)
+payall auth login --key <private_key>          # Non-interactive login (for agents) — key auto-saved
 payall auth login --invite XYZ                 # Include referral code (first-time only)
 payall auth status                             # Show current session (account, user_id, expiry, saved key)
-payall auth logout                             # Clear server session + local credentials
-payall auth forget-key                         # Remove saved private key from ~/.payall/
+payall auth logout                             # Clear server session, local credentials, AND saved key
+payall auth forget-key                         # Remove saved private key only (keeps session)
 ```
 
 **Login flow**: User provides EVM private key -> CLI signs a message locally (key never sent to server) -> sends signature + wallet address to API -> receives JWT (180-day expiry) -> stores encrypted in ~/.payall/credentials.enc.
 
-If the user has previously run `--save-key`, subsequent `login` calls reuse the saved key automatically without prompting. The `--key` / `-k` flag allows passing the private key directly, skipping the interactive prompt (useful for agent automation).
+If the user has previously run `--save-key`, subsequent `login` calls reuse the saved key automatically without prompting. The `--key` / `-k` flag allows passing the private key directly, skipping the interactive prompt and automatically saving the key (useful for agent automation — no `--save-key` needed).
 
 ### Card Commands
 

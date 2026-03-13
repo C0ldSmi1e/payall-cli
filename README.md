@@ -67,11 +67,11 @@ payall cards topup <binding_id>
 |---------|-------------|
 | `payall auth login` | Sign in with EVM private key (auto-registers new wallets) |
 | `payall auth login --save-key` | Sign in and save encrypted key for future sessions |
-| `payall auth login --key <key> --save-key` | Non-interactive login (for agents) |
+| `payall auth login --key <key>` | Non-interactive login (for agents) — key auto-saved |
 | `payall auth login --invite CODE` | Sign in with referral code (first login only) |
 | `payall auth status` | Show current session info |
-| `payall auth logout` | Clear session and local credentials |
-| `payall auth forget-key` | Remove saved private key |
+| `payall auth logout` | Clear session, credentials, and saved key |
+| `payall auth forget-key` | Remove saved private key only (keeps session) |
 
 Your private key is signed locally and never sent to the server. Saved keys are encrypted with AES-256-GCM.
 
