@@ -2,6 +2,8 @@
 
 A terminal tool for managing crypto debit cards on the Payall platform. Browse a card marketplace, apply for cards funded with USDT, top up balances, check card details, and more — all from your terminal.
 
+**⚠️ Security Disclaimer:** Payall CLI and Payall Skills are under active development. Do not use with wallets holding significant assets. Use at your own risk.
+
 ## Install
 
 ```bash
