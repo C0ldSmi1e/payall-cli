@@ -105,11 +105,12 @@ Your private key is signed locally and never sent to the server. Saved keys are 
 
 | Command | Description |
 |---------|-------------|
-| `payall wallet balance` | USDT/USDC balances across chains |
-| `payall wallet transactions` | Recent transaction history |
-| `payall wallet addresses` | Your deposit addresses |
-| `payall wallet topup` | Get a deposit address |
-| `payall wallet withdraw` | Withdraw to external wallet |
+| `payall wallet balance` | USDT + gas token balances on BSC, ETH, TRON |
+| `payall wallet send --to 0x... --amount 50 --chain bsc` | Send USDT on BSC |
+| `payall wallet send --to 0x... --amount 50 --chain eth` | Send USDT on Ethereum |
+| `payall wallet send --to T... --amount 50 --chain tron` | Send USDT on TRON (TRC-20) |
+
+Add `--yes` / `-y` to skip the confirmation prompt. If no saved wallet key is found, the CLI will prompt for it interactively and offer to save it.
 
 ### Other
 
@@ -179,11 +180,13 @@ Point your agent at the skill file or include these instructions in its system p
 **Agent workflow example — topping up a card:**
 
 ```
-1. Run: payall cards my                                      -> get the binding_id
-2. Run: payall cards topup <id> --amount 50 --chain tron --yes  -> non-interactive, no prompts
+1. Run: payall cards my                                             -> get the binding_id
+2. Run: payall cards topup <id> --amount 50 --chain tron --yes      -> get deposit address
+3. Run: payall wallet balance                                       -> check which chain has funds
+4. Run: payall wallet send --to <deposit_addr> --amount 50 --chain tron --yes  -> send USDT
 ```
 
-The `--amount`, `--chain`, and `--yes` flags bypass all interactive prompts, making it safe for AI agents to call directly.
+The `--amount`, `--chain`, and `--yes` flags bypass all interactive prompts, making it safe for AI agents to call directly. If `wallet send` fails, the CLI prints the deposit address for manual transfer.
 
 ## API
 

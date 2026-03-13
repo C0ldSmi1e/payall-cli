@@ -2,23 +2,48 @@ import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
-import { loadWalletKey } from "../auth/store.js";
+import { loadWalletKey, saveWalletKey } from "../auth/store.js";
 import { formatAddress } from "../auth/wallet.js";
 import { getAllBalances } from "../wallet/balance.js";
 import { sendUsdt, type SendError } from "../wallet/send.js";
 import { CHAINS } from "../wallet/chains.js";
 import { renderTable } from "../ui/table.js";
 
-function requireWalletKey(): string {
-  const key = loadWalletKey();
-  if (!key) {
-    console.error(
-      chalk.red(
-        "No saved wallet key. Run: payall auth login --save-key"
-      )
-    );
-    process.exit(1);
+async function requireWalletKey(): Promise<string> {
+  const saved = loadWalletKey();
+  if (saved) return saved;
+
+  console.log(
+    chalk.yellow("No saved wallet key. Your private key is needed for on-chain operations.")
+  );
+
+  const { privateKey } = await inquirer.prompt([
+    {
+      type: "password",
+      name: "privateKey",
+      message: "Enter your EVM private key:",
+      mask: "*",
+      validate: (v: string) =>
+        /^(0x)?[0-9a-fA-F]{64}$/.test(v.trim()) || "Invalid private key format (expected 64 hex chars)",
+    },
+  ]);
+
+  const key = privateKey.trim();
+
+  const { save } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "save",
+      message: "Save this key for future wallet commands?",
+      default: true,
+    },
+  ]);
+
+  if (save) {
+    saveWalletKey(key);
+    console.log(chalk.green("Key saved (AES-256-GCM encrypted)."));
   }
+
   return key;
 }
 
@@ -40,7 +65,7 @@ export function registerWalletCommands(program: Command) {
     .command("balance")
     .description("Show USDT and gas token balances across all chains")
     .action(async () => {
-      const key = requireWalletKey();
+      const key = await requireWalletKey();
       const spinner = ora("Fetching balances across BSC, ETH, TRON...").start();
 
       try {
@@ -84,7 +109,7 @@ export function registerWalletCommands(program: Command) {
     .requiredOption("--chain <chain>", "Chain to send on (bsc, eth, tron)")
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (opts) => {
-      const key = requireWalletKey();
+      const key = await requireWalletKey();
       const chain = opts.chain.toLowerCase();
 
       // Validate chain

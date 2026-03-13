@@ -153,9 +153,11 @@ The apply flow:
 - `23` = Bit2Go (Visa/Mastercard, multi-currency, no KYC)
 - `39` = MiPay Universal Card (USD only, no KYC)
 
-### Wallet Commands (auth + saved key required)
+### Wallet Commands (auth required)
 
 On-chain wallet operations. The same private key derives addresses on all chains (BSC/ETH share the same 0x address; TRON derives a T... address).
+
+If no saved key is found, wallet commands interactively prompt for the private key and offer to save it (AES-256-GCM encrypted) for future use. For non-interactive/agent use, ensure the key is saved first via `payall auth login --save-key`.
 
 ```
 payall wallet balance                                        # USDT + gas balances on BSC, ETH, TRON
