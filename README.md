@@ -39,7 +39,7 @@ bun run src/cli.ts <command>
 ## Quick Start
 
 ```bash
-# 1. Login with your wallet (EVM or Tron)
+# 1. Login with your EVM wallet
 payall auth login
 
 # 2. Browse available cards
@@ -65,17 +65,15 @@ payall cards topup <binding_id>
 
 | Command | Description |
 |---------|-------------|
-| `payall auth login` | Sign in with private key (auto-registers new wallets) |
-| `payall auth login --chain tron` | Sign in with Tron wallet |
-| `payall auth login --chain evm` | Sign in with EVM wallet (Ethereum/BSC/Polygon) |
-| `payall auth login --save-key` | Sign in and save encrypted key + chain for future sessions |
-| `payall auth login --key <key> --chain tron --save-key` | Non-interactive Tron login (for agents) |
+| `payall auth login` | Sign in with EVM private key (auto-registers new wallets) |
+| `payall auth login --save-key` | Sign in and save encrypted key for future sessions |
+| `payall auth login --key <key> --save-key` | Non-interactive login (for agents) |
 | `payall auth login --invite CODE` | Sign in with referral code (first login only) |
-| `payall auth status` | Show current session info (includes chain type) |
+| `payall auth status` | Show current session info |
 | `payall auth logout` | Clear session and local credentials |
 | `payall auth forget-key` | Remove saved private key |
 
-Your private key is signed locally and never sent to the server. Saved keys are encrypted with AES-256-GCM. Both EVM and Tron use the same secp256k1 key format — the `--chain` flag determines address derivation and signature format.
+Your private key is signed locally and never sent to the server. Saved keys are encrypted with AES-256-GCM.
 
 ### Card Marketplace (no auth required)
 

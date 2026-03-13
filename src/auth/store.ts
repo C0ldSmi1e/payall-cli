@@ -7,15 +7,12 @@ import { hostname, userInfo } from "os";
 const CREDENTIALS_FILE = "credentials.enc";
 const WALLET_KEY_FILE = "wallet.enc";
 
-import type { ChainType } from "./wallet.js";
-
 interface Credentials {
   token: string;
   email: string; // wallet address for wallet login
   user_id: number;
   login_type: number;
   expires_at: number;
-  chain?: ChainType;
 }
 
 function deriveKey(): Buffer {
@@ -73,26 +70,16 @@ export function clearCredentials(): void {
   if (existsSync(path)) unlinkSync(path);
 }
 
-export function saveWalletKey(privateKey: string, chain: ChainType = "evm"): void {
-  writeFileSync(walletKeyPath(), encrypt(JSON.stringify({ key: privateKey, chain })), "utf-8");
+export function saveWalletKey(privateKey: string): void {
+  writeFileSync(walletKeyPath(), encrypt(privateKey), "utf-8");
 }
 
-export function loadWalletKey(): { key: string; chain: ChainType } | null {
+export function loadWalletKey(): string | null {
   const path = walletKeyPath();
   if (!existsSync(path)) return null;
   try {
     const raw = readFileSync(path, "utf-8");
-    const decrypted = decrypt(raw);
-    // Try parsing as JSON (new format); fallback to raw string (legacy)
-    try {
-      const parsed = JSON.parse(decrypted);
-      if (parsed && typeof parsed === "object" && parsed.key) {
-        return { key: parsed.key, chain: parsed.chain || "evm" };
-      }
-    } catch {
-      // Legacy format: raw private key string
-    }
-    return { key: decrypted, chain: "evm" };
+    return decrypt(raw);
   } catch {
     return null;
   }
