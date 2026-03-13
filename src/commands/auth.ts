@@ -27,22 +27,15 @@ export function registerAuthCommands(program: Command) {
     .command("login")
     .description("Login with EVM wallet (auto-registers if new)")
     .option("--save-key", "Save wallet private key (encrypted) for future logins")
-    .option("--forget-key", "Remove saved wallet key before login")
     .option("-k, --key <private_key>", "EVM private key (skips prompt)")
     .option("--invite <code>", "Invite code (for first-time registration)")
     .action(async (opts) => {
       try {
-        // Handle --forget-key
-        if (opts.forgetKey) {
-          clearWalletKey();
-          console.log(chalk.dim("Saved wallet key removed."));
-        }
-
         let privateKey: string | null = null;
 
         // Try to use saved key first
         const savedKey = loadWalletKey();
-        if (savedKey && !opts.forgetKey) {
+        if (savedKey) {
           const account = getAccountFromKey(savedKey);
           console.log(chalk.dim(`Using saved wallet ${formatAddress(account.address)}`));
           privateKey = savedKey;
@@ -191,16 +184,4 @@ export function registerAuthCommands(program: Command) {
       console.log(chalk.green("Local session and saved key cleared."));
     });
 
-  auth
-    .command("forget-key")
-    .description("Remove saved wallet private key")
-    .action(() => {
-      const hasKey = loadWalletKey() !== null;
-      if (!hasKey) {
-        console.log(chalk.yellow("No saved key found."));
-        return;
-      }
-      clearWalletKey();
-      console.log(chalk.green("Saved wallet key removed."));
-    });
 }

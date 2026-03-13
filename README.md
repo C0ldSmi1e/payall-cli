@@ -71,7 +71,6 @@ payall cards topup <binding_id>
 | `payall auth login --invite CODE` | Sign in with referral code (first login only) |
 | `payall auth status` | Show current session info |
 | `payall auth logout` | Clear session, credentials, and saved key |
-| `payall auth forget-key` | Remove saved private key only (keeps session) |
 
 Your private key is signed locally and never sent to the server. Saved keys are encrypted with AES-256-GCM.
 

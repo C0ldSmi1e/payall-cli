@@ -31,7 +31,6 @@ payall auth login --key <private_key>          # Non-interactive login (for agen
 payall auth login --invite XYZ                 # Include referral code (first-time only)
 payall auth status                             # Show current session (account, user_id, expiry, saved key)
 payall auth logout                             # Clear server session, local credentials, AND saved key
-payall auth forget-key                         # Remove saved private key only (keeps session)
 ```
 
 **Login flow**: User provides EVM private key -> CLI signs a message locally (key never sent to server) -> sends signature + wallet address to API -> receives JWT (180-day expiry) -> stores encrypted in ~/.payall/credentials.enc.
