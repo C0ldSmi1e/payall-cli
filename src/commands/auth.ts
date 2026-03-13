@@ -2,7 +2,13 @@ import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
-import { signLoginMessage, getAccountFromKey, formatAddress } from "../auth/wallet.js";
+import {
+  validatePrivateKey,
+  getAddressFromKey,
+  signLoginMessageForChain,
+  formatAddress,
+  type ChainType,
+} from "../auth/wallet.js";
 import {
   saveCredentials,
   loadCredentials,
@@ -25,10 +31,11 @@ export function registerAuthCommands(program: Command) {
 
   auth
     .command("login")
-    .description("Login with EVM wallet (auto-registers if new)")
+    .description("Login with EVM or Tron wallet (auto-registers if new)")
     .option("--save-key", "Save wallet private key (encrypted) for future logins")
     .option("--forget-key", "Remove saved wallet key before login")
-    .option("-k, --key <private_key>", "EVM private key (skips prompt)")
+    .option("-k, --key <private_key>", "Private key (skips prompt)")
+    .option("-c, --chain <chain>", "Chain type: evm or tron")
     .option("--invite <code>", "Invite code (for first-time registration)")
     .action(async (opts) => {
       try {
@@ -39,25 +46,35 @@ export function registerAuthCommands(program: Command) {
         }
 
         let privateKey: string | null = null;
+        let chain: ChainType | null = opts.chain || null;
+
+        // Validate --chain flag
+        if (chain && chain !== "evm" && chain !== "tron") {
+          console.error(chalk.red('Invalid chain. Use "evm" or "tron".'));
+          process.exit(1);
+        }
 
         // Try to use saved key first
-        const savedKey = loadWalletKey();
-        if (savedKey && !opts.forgetKey) {
-          const account = getAccountFromKey(savedKey);
-          console.log(chalk.dim(`Using saved wallet ${formatAddress(account.address)}`));
-          privateKey = savedKey;
+        const saved = loadWalletKey();
+        if (saved && !opts.forgetKey) {
+          const address = getAddressFromKey(saved.key, chain || saved.chain);
+          console.log(
+            chalk.dim(
+              `Using saved wallet ${formatAddress(address)} (${(chain || saved.chain).toUpperCase()})`
+            )
+          );
+          privateKey = saved.key;
+          if (!chain) chain = saved.chain;
         }
 
         // Use --key flag if provided
         if (!privateKey && opts.key) {
           const keyInput = opts.key.trim();
-          try {
-            getAccountFromKey(keyInput);
-            privateKey = keyInput;
-          } catch {
+          if (!validatePrivateKey(keyInput)) {
             console.error(chalk.red("Invalid private key format"));
             process.exit(1);
           }
+          privateKey = keyInput;
         }
 
         // Prompt for key if not available
@@ -66,30 +83,44 @@ export function registerAuthCommands(program: Command) {
             {
               type: "password",
               name: "key",
-              message: "Enter your EVM private key:",
+              message: "Enter your private key:",
               mask: "*",
               validate: (input: string) => {
                 if (!input.trim()) return "Private key is required";
-                try {
-                  getAccountFromKey(input.trim());
-                  return true;
-                } catch {
+                if (!validatePrivateKey(input.trim()))
                   return "Invalid private key format";
-                }
+                return true;
               },
             },
           ]);
           privateKey = key.trim();
         }
 
-        const account = getAccountFromKey(privateKey);
-        console.log(chalk.dim(`  Address: ${account.address}`));
+        // Prompt for chain if not resolved
+        if (!chain) {
+          const { selectedChain } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "selectedChain",
+              message: "Select chain:",
+              choices: [
+                { name: "EVM (Ethereum/BSC/Polygon)", value: "evm" },
+                { name: "TRON", value: "tron" },
+              ],
+            },
+          ]);
+          chain = selectedChain as ChainType;
+        }
+
+        const address = getAddressFromKey(privateKey, chain);
+        console.log(chalk.dim(`  Chain:   ${chain.toUpperCase()}`));
+        console.log(chalk.dim(`  Address: ${address}`));
 
         const spinner = ora("Signing login message...").start();
 
         // Sign the message
         const { wallet_address, signature, timestamp } =
-          await signLoginMessage(privateKey);
+          await signLoginMessageForChain(privateKey, chain);
 
         spinner.text = "Authenticating...";
 
@@ -115,11 +146,12 @@ export function registerAuthCommands(program: Command) {
           user_id: data.user_id,
           login_type: data.login_type,
           expires_at: expiresAt,
+          chain,
         });
 
         // Save key if requested
         if (opts.saveKey) {
-          saveWalletKey(privateKey);
+          saveWalletKey(privateKey, chain);
           spinner.succeed(
             chalk.green(`Logged in as ${formatAddress(wallet_address)}`) +
               chalk.dim(` (user_id: ${data.user_id}). Key saved.`)
@@ -161,11 +193,16 @@ export function registerAuthCommands(program: Command) {
 
       console.log(chalk.green("Logged in"));
       console.log(chalk.dim(`  Account:  ${formatAddress(creds.email)}`));
+      console.log(chalk.dim(`  Chain:    ${(creds.chain || "evm").toUpperCase()}`));
       console.log(chalk.dim(`  User ID:  ${creds.user_id}`));
       console.log(chalk.dim(`  Expires:  ${expiresDate.toLocaleDateString()} (${daysLeft} days)`));
 
-      const hasSavedKey = loadWalletKey() !== null;
-      console.log(chalk.dim(`  Saved key: ${hasSavedKey ? "yes" : "no"}`));
+      const saved = loadWalletKey();
+      if (saved) {
+        console.log(chalk.dim(`  Saved key: yes (${saved.chain})`));
+      } else {
+        console.log(chalk.dim(`  Saved key: no`));
+      }
     });
 
   auth

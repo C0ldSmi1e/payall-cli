@@ -1,12 +1,12 @@
 ---
 name: payall-cli
 description: |
-  Operate the Payall crypto card CLI tool. Use this skill whenever the user wants to: manage crypto debit cards, check card balances, apply for new cards, compare cards, list marketplace cards, view card fees, login/logout with an EVM wallet, check auth status, view favorite cards, or any card-related operation via terminal. Also trigger when the user mentions "payall", "crypto card", "card balance", "apply for card", "card fees", or wants to run payall CLI commands. This skill knows every available command and the correct flags/arguments for each.
+  Operate the Payall crypto card CLI tool. Use this skill whenever the user wants to: manage crypto debit cards, check card balances, apply for new cards, compare cards, list marketplace cards, view card fees, login/logout with an EVM or Tron wallet, check auth status, view favorite cards, or any card-related operation via terminal. Also trigger when the user mentions "payall", "crypto card", "card balance", "apply for card", "card fees", or wants to run payall CLI commands. This skill knows every available command and the correct flags/arguments for each.
 ---
 
 # Payall CLI
 
-A terminal tool for managing crypto debit cards on the Payall platform. Users can browse a card marketplace, apply for cards funded with crypto (USDT), check balances, compare cards, and manage authentication via EVM wallet signatures.
+A terminal tool for managing crypto debit cards on the Payall platform. Users can browse a card marketplace, apply for cards funded with crypto (USDT), check balances, compare cards, and manage authentication via EVM or Tron wallet signatures.
 
 ## Setup
 
@@ -22,21 +22,25 @@ If `payall` is not found, install it first with the command above.
 
 ### Auth Commands
 
-Authentication uses EVM wallet private key signing. A single login call handles both registration (new wallets auto-register) and login for existing users.
+Authentication uses EVM or Tron wallet private key signing. A single login call handles both registration (new wallets auto-register) and login for existing users. Both chain types use the same secp256k1 private key — the chain determines address format and message signing prefix.
 
 ```
-payall auth login                              # Prompt for private key, sign message, authenticate
-payall auth login --save-key                   # Same, but save the encrypted private key for future use
-payall auth login --key <private_key> --save-key  # Non-interactive login (for agents)
+payall auth login                              # Prompt for private key + chain, sign message, authenticate
+payall auth login --chain evm                  # Use EVM chain (Ethereum/BSC/Polygon)
+payall auth login --chain tron                 # Use Tron chain
+payall auth login --save-key                   # Save the encrypted private key + chain for future use
+payall auth login --key <private_key> --chain tron --save-key  # Non-interactive Tron login
 payall auth login --invite XYZ                 # Include referral code (first-time only)
-payall auth status                             # Show current session (account, user_id, expiry, saved key)
+payall auth status                             # Show current session (account, chain, user_id, expiry, saved key)
 payall auth logout                             # Clear server session + local credentials
 payall auth forget-key                         # Remove saved private key from ~/.payall/
 ```
 
-**Login flow**: User provides EVM private key -> CLI signs a message locally (key never sent to server) -> sends signature + wallet address to API -> receives JWT (180-day expiry) -> stores encrypted in ~/.payall/credentials.enc.
+**Login flow**: User provides private key + selects chain (EVM or Tron) -> CLI signs a message locally (key never sent to server) -> sends signature + wallet address to API -> receives JWT (180-day expiry) -> stores encrypted in ~/.payall/credentials.enc.
 
-If the user has previously run `--save-key`, subsequent `login` calls reuse the saved key automatically without prompting. The `--key` / `-k` flag allows passing the private key directly, skipping the interactive prompt (useful for agent automation).
+**Chain resolution priority**: `--chain` flag > saved key's chain > interactive prompt.
+
+If the user has previously run `--save-key`, subsequent `login` calls reuse the saved key and chain automatically without prompting. The `--key` / `-k` flag allows passing the private key directly, and `--chain` / `-c` selects the chain, skipping the interactive prompts (useful for agent automation).
 
 ### Card Commands
 
@@ -228,4 +232,4 @@ Always show a fee comparison (`payall cards fees`) for the recommended card(s) s
 - **"User Not Authorized"**: Token expired. Run `payall auth login` again
 - **"Bind Card Failed"**: The `cards/binding` endpoint is for non-API cards only. For cards 23/39, use `cards apply` which goes through `preCharge`
 - **Cards list empty after apply**: `cards my` returns cards from `userCards` endpoint which wraps data in `{ cards: [...] }`
-- **Private key security**: Key is signed locally via `viem`, never sent to the server. Stored key is AES-256-GCM encrypted
+- **Private key security**: Key is signed locally via `viem` (EVM) or `@noble/curves` (Tron), never sent to the server. Stored key is AES-256-GCM encrypted
