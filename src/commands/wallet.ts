@@ -78,37 +78,34 @@ export function registerWalletCommands(program: Command) {
 
   wallet
     .command("send")
-    .description("Send USDT on EVM chains (BSC, ETH)")
-    .requiredOption("--to <address>", "Destination address (0x...)")
+    .description("Send USDT on BSC, ETH, or TRON")
+    .requiredOption("--to <address>", "Destination address (0x... for EVM, T... for TRON)")
     .requiredOption("--amount <amount>", "Amount of USDT to send")
-    .requiredOption("--chain <chain>", "Chain to send on (bsc, eth)")
+    .requiredOption("--chain <chain>", "Chain to send on (bsc, eth, tron)")
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (opts) => {
       const key = requireWalletKey();
       const chain = opts.chain.toLowerCase();
 
       // Validate chain
-      if (chain === "tron") {
+      if (!CHAINS[chain]) {
         console.error(
-          chalk.yellow(
-            "TRON sends are not yet supported. Please send manually using a TRON wallet."
-          )
-        );
-        printManualFallback(opts.to, opts.amount, "tron");
-        process.exit(1);
-      }
-
-      if (!CHAINS[chain] || CHAINS[chain].type !== "evm") {
-        console.error(
-          chalk.red(`Invalid chain "${opts.chain}". Supported: bsc, eth`)
+          chalk.red(`Invalid chain "${opts.chain}". Supported: bsc, eth, tron`)
         );
         process.exit(1);
       }
 
       // Validate address format
-      if (!opts.to.match(/^0x[0-9a-fA-F]{40}$/)) {
-        console.error(chalk.red("Invalid address format. Expected 0x... (40 hex chars)"));
-        process.exit(1);
+      if (chain === "tron") {
+        if (!opts.to.match(/^T[1-9A-HJ-NP-Za-km-z]{33}$/)) {
+          console.error(chalk.red("Invalid TRON address format. Expected T... (34 chars, Base58)"));
+          process.exit(1);
+        }
+      } else {
+        if (!opts.to.match(/^0x[0-9a-fA-F]{40}$/)) {
+          console.error(chalk.red("Invalid address format. Expected 0x... (40 hex chars)"));
+          process.exit(1);
+        }
       }
 
       // Validate amount

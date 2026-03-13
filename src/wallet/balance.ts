@@ -1,7 +1,7 @@
 import { createPublicClient, http, formatUnits, formatEther } from "viem";
 import { getAccountFromKey } from "../auth/wallet.js";
 import { CHAINS, ERC20_ABI, type ChainConfig } from "./chains.js";
-import { evmToTronAddress, getTronBalances } from "./tron.js";
+import { tronAddressFromKey, getTronBalances } from "./tron.js";
 
 export interface ChainBalance {
   chain: string;
@@ -42,9 +42,9 @@ async function getEvmBalance(
 }
 
 async function getTronBalance(
-  evmAddress: string
+  privateKey: string
 ): Promise<ChainBalance> {
-  const tronAddress = evmToTronAddress(evmAddress);
+  const tronAddress = tronAddressFromKey(privateKey);
   const { usdt, trx } = await getTronBalances(tronAddress);
 
   return {
@@ -65,8 +65,10 @@ export async function getAllBalances(
   const results = await Promise.allSettled([
     getEvmBalance("bsc", CHAINS.bsc, evmAddress),
     getEvmBalance("eth", CHAINS.eth, evmAddress),
-    getTronBalance(evmAddress),
+    getTronBalance(privateKey),
   ]);
+
+  const tronAddress = tronAddressFromKey(privateKey);
 
   return results.map((result, i) => {
     const chainNames = ["BSC", "ETH", "TRON"];
@@ -75,7 +77,7 @@ export async function getAllBalances(
     }
     return {
       chain: chainNames[i],
-      address: i < 2 ? evmAddress : evmToTronAddress(evmAddress),
+      address: i < 2 ? evmAddress : tronAddress,
       usdtBalance: "-",
       gasToken: ["BNB", "ETH", "TRX"][i],
       gasBalance: "-",

@@ -159,17 +159,18 @@ On-chain wallet operations. The same private key derives addresses on all chains
 
 ```
 payall wallet balance                                        # USDT + gas balances on BSC, ETH, TRON
-payall wallet send --to 0x... --amount 50 --chain bsc --yes  # Send USDT (EVM chains only)
+payall wallet send --to 0x... --amount 50 --chain bsc --yes  # Send USDT on BSC
 payall wallet send --to 0x... --amount 50 --chain eth --yes  # Send USDT on Ethereum
+payall wallet send --to T... --amount 50 --chain tron --yes  # Send USDT on TRON (TRC-20)
 ```
 
 **Non-interactive flags** (for `wallet send`):
-- `--to <address>` — Destination 0x address (required)
+- `--to <address>` — Destination address: `0x...` for EVM chains, `T...` for TRON (required)
 - `--amount <amount>` — USDT amount (required)
-- `--chain <chain>` — `bsc` or `eth` (required; TRON sends not yet supported)
+- `--chain <chain>` — `bsc`, `eth`, or `tron` (required)
 - `-y, --yes` — Skip confirmation prompt
 
-**Limitations**: TRON balance is read-only (display only). TRON sends must be done manually via a TRON wallet. If a send fails for any reason, the CLI prints manual transfer instructions (address, chain, amount).
+**TRON notes**: TRON transfers require TRX for energy/bandwidth fees. The CLI checks for non-zero TRX balance before sending and sets a 15 TRX fee limit. If a send fails for any reason, the CLI prints manual transfer instructions (address, chain, amount).
 
 ## Response Format
 
@@ -206,20 +207,21 @@ The CLI handles both transparently. Error code `4001` means unauthorized (token 
 - `payall cards fees --card-id 39 --type OPEN_CARD`
 
 **Agent Workflow: Automated Topup:**
-1. `payall cards topup <binding_id> --amount 50 --chain bsc --yes` → get deposit address
-2. `payall wallet balance` → check balances
-3. If BSC has enough USDT + gas:
+1. `payall cards topup <binding_id> --amount 50 --chain tron --yes` → get deposit address
+2. `payall wallet balance` → check balances across BSC, ETH, TRON
+3. If TRON has enough USDT + TRX:
+   `payall wallet send --to <deposit_addr> --amount 50 --chain tron --yes`
+4. If not enough on TRON, try BSC/ETH:
    `payall wallet send --to <deposit_addr> --amount 50 --chain bsc --yes`
-4. If not enough on selected chain:
-   - Check other chains, suggest the one with sufficient balance
-   - Or tell user to fund wallet and show the wallet address
-5. On ANY failure: show deposit address + chain for manual transfer
+5. If not enough on any chain:
+   - Tell user to fund wallet and show the wallet address
+6. On ANY failure: show deposit address + chain for manual transfer
 
 **Agent Workflow: Automated Card Apply:**
-1. `payall cards apply <card_id> --auto-fill --chain bsc --yes` → get deposit address
+1. `payall cards apply <card_id> --auto-fill --chain tron --yes` → get deposit address
 2. `payall wallet balance` → check balances
-3. If chain has enough USDT + gas:
-   `payall wallet send --to <deposit_addr> --amount <total> --chain bsc --yes`
+3. If chain has enough USDT + gas (TRX for TRON, BNB for BSC, ETH for Ethereum):
+   `payall wallet send --to <deposit_addr> --amount <total> --chain tron --yes`
 4. Same fallback logic as topup workflow above
 
 **Fallback rule:** If `wallet send` fails for any reason, the agent MUST present the deposit address, chain, and amount to the user so they can complete the transfer manually via any wallet app.

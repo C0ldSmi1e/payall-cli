@@ -8,6 +8,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { CHAINS, ERC20_ABI, type ChainConfig } from "./chains.js";
+import { sendTronUsdt } from "./tron.js";
 
 export interface SendResult {
   txHash: string;
@@ -35,15 +36,21 @@ export async function sendUsdt({
   toAddress: string;
   amount: string;
 }): Promise<SendResult> {
-  const config = CHAINS[chain.toLowerCase()];
-  if (!config || config.type !== "evm") {
-    throw Object.assign(new Error(`Chain "${chain}" is not supported for sending. Only BSC and ETH are supported.`), {
+  const chainKey = chain.toLowerCase();
+  const config = CHAINS[chainKey];
+  if (!config) {
+    throw Object.assign(new Error(`Chain "${chain}" is not supported for sending. Supported: bsc, eth, tron.`), {
       sendError: {
         type: "send_failed",
         message: `Chain "${chain}" is not supported for sending.`,
         details: {},
       } as SendError,
     });
+  }
+
+  // Route TRON to its own sender
+  if (config.type === "tron") {
+    return sendTronUsdt({ privateKey, toAddress, amount });
   }
 
   const key = privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;

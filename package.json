@@ -21,6 +21,7 @@
     "commander": "^13.1.0",
     "inquirer": "^12.3.2",
     "ora": "^8.1.1",
+    "tronweb": "^6.2.2",
     "viem": "^2.23.2"
   },
   "devDependencies": {
