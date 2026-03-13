@@ -66,7 +66,7 @@ export function registerAuthCommands(program: Command) {
             {
               type: "password",
               name: "key",
-              message: "Enter your EVM private key:",
+              message: "Enter your private key (works with EVM & TRON wallets):",
               mask: "*",
               validate: (input: string) => {
                 if (!input.trim()) return "Private key is required";

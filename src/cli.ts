@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { registerAuthCommands } from "./commands/auth.js";
 import { registerCardCommands } from "./commands/cards.js";
+import { registerWalletCommands } from "./commands/wallet.js";
 
 const program = new Command();
 
@@ -12,5 +13,6 @@ program
 
 registerAuthCommands(program);
 registerCardCommands(program);
+registerWalletCommands(program);
 
 program.parse();
