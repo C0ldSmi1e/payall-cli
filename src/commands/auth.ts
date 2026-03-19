@@ -94,6 +94,7 @@ export function registerAuthCommands(program: Command) {
             signature,
             timestamp,
             inviteCode: opts.invite || "",
+            source: "payall-cli",
           },
           auth: false,
         });

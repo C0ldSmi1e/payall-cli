@@ -741,6 +741,7 @@ export function registerCardCommands(program: Command) {
             card_id: cardId,
             card_binding_id: bindingId,
             card_currency: cardCurrency,
+            source: "payall-cli",
           },
         });
         preSpinner.succeed("Topup order created!");
@@ -1010,6 +1011,7 @@ export function registerCardCommands(program: Command) {
               card_binding_id: "",
               card_issue_info: cardIssueInfo,
               card_currency: cardCurrency,
+              source: "payall-cli",
             },
           }
         );

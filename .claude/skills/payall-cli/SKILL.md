@@ -30,6 +30,8 @@ payall auth logout                             # Clear session, credentials, and
 
 The private key is signed locally and never sent to the server. When `--key` is passed, the key is automatically saved (AES-256-GCM encrypted) so subsequent wallet commands work without re-entering it.
 
+All CLI requests include `source: "payall-cli"` automatically for backend analytics tracking.
+
 ## Card Commands
 
 ### Browsing (no auth required)
