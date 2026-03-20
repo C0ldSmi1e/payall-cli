@@ -5,7 +5,8 @@ import inquirer from "inquirer";
 import { api, pathApi, ApiError } from "../api/client.js";
 import { renderTable, renderKeyValue } from "../ui/table.js";
 import { formatStatus, formatBoolean, formatCurrency, parseFees, feeValue, truncate } from "../ui/format.js";
-import { loadCredentials } from "../auth/store.js";
+import { loadCredentials, loadWalletKey } from "../auth/store.js";
+import { getAccountFromKey, signWithdrawConfirm } from "../auth/wallet.js";
 
 interface Card {
   id: number;
@@ -1130,6 +1131,268 @@ export function registerCardCommands(program: Command) {
         console.error(chalk.red(msg));
       }
     });
+  // --- cards withdraw <binding_id> ---
+  cards
+    .command("withdraw <binding_id>")
+    .description("Withdraw card balance to USDT wallet")
+    .option("-a, --amount <amount>", "Withdrawal amount in USDT")
+    .option("-c, --chain <chain>", "Payout network: tron, bsc, eth")
+    .option("--address <address>", "Destination wallet address (defaults to your wallet)")
+    .option("-y, --yes", "Skip confirmation prompt")
+    .option("--json", "Output as JSON (for agents)")
+    .action(async (bindingId: string, opts: {
+      amount?: string; chain?: string; address?: string; yes?: boolean; json?: boolean;
+    }) => {
+      const creds = loadCredentials();
+      if (!creds) {
+        console.log(chalk.red("Not logged in. Run: payall auth login"));
+        return;
+      }
+
+      const privateKey = loadWalletKey();
+      if (!privateKey) {
+        console.log(chalk.red("Wallet key required for withdrawal signing. Run: payall auth login --save-key"));
+        return;
+      }
+
+      const spinner = ora("Loading card info...").start();
+      try {
+        // 1. Fetch user's bound cards
+        const { data: cardsResp } = await api<{ cards: BoundCard[] } | BoundCard[]>("userCards", { method: "GET" });
+        const boundCards = Array.isArray(cardsResp) ? cardsResp : (cardsResp as { cards: BoundCard[] })?.cards || [];
+        const boundCard = boundCards.find((c) => String(c.card_binding_id ?? (c as Record<string, unknown>).binding_id) === bindingId);
+
+        if (!boundCard) {
+          spinner.fail(`Card with binding ID ${bindingId} not found. Check your cards with: payall cards my`);
+          return;
+        }
+
+        // 2. Validate it's a Bit2Go card (card_id=23)
+        const cardId = String(boundCard.payall_card_id ?? (boundCard as Record<string, unknown>).card_id);
+        if (cardId !== "23") {
+          spinner.fail("Withdrawal is only supported for Bit2Go cards.");
+          return;
+        }
+
+        const cardCurrency = boundCard.currency || (boundCard as Record<string, unknown>).card_currency as string || "USD";
+        const balance = Number(boundCard.card_balance ?? (boundCard as Record<string, unknown>).balance ?? 0);
+
+        // 3. Get card detail for card_bin
+        const { data: detailData } = await api<CardDetailResponse>("cards/getCardDetail", {
+          body: { related_key: bindingId, need_verify: 0 },
+        });
+
+        spinner.stop();
+
+        if (!detailData?.card_bin) {
+          console.log(chalk.red("Could not retrieve card BIN. Try again later."));
+          return;
+        }
+
+        const cardBin = detailData.card_bin;
+        const lastFour = (detailData.card_number || "").slice(-4);
+        const displayName = boundCard.card_name || detailData.card_name || "Card";
+
+        console.log(chalk.bold.cyan(`\n  ${displayName} (****${lastFour}) - ${cardCurrency}`));
+        console.log(`  Balance: ${chalk.bold(formatCurrency(balance, cardCurrency))}`);
+        console.log();
+
+        // 4. Amount input
+        let amount: string;
+        if (opts.amount) {
+          const n = parseFloat(opts.amount);
+          if (isNaN(n) || n <= 2) {
+            console.log(chalk.red("Amount must be greater than 2 USDT"));
+            return;
+          }
+          if (n > balance - 0.01) {
+            console.log(chalk.red(`Insufficient balance. Available: ${(balance - 0.01).toFixed(2)} USDT (balance minus 0.01 minimum remaining)`));
+            return;
+          }
+          amount = opts.amount;
+        } else {
+          const resp = await inquirer.prompt([
+            {
+              type: "input",
+              name: "amount",
+              message: `Amount to withdraw (USDT, max ${(balance - 0.01).toFixed(2)}):`,
+              validate: (val: string) => {
+                const n = parseFloat(val);
+                if (isNaN(n) || n <= 2) return "Amount must be greater than 2 USDT";
+                if (n > balance - 0.01) return `Exceeds available balance (${(balance - 0.01).toFixed(2)} USDT)`;
+                return true;
+              },
+            },
+          ]);
+          amount = resp.amount;
+        }
+
+        // 5. Chain selection
+        const chainMap: Record<string, { chain: string; display: string }> = {
+          tron: { chain: "TRON", display: "TRON (TRC20)" },
+          bsc: { chain: "BSC", display: "BSC (BEP20)" },
+          eth: { chain: "ETH", display: "Ethereum (ERC20)" },
+        };
+
+        let chainKey: string;
+        if (opts.chain) {
+          chainKey = opts.chain.toLowerCase();
+          if (!chainMap[chainKey]) {
+            console.log(chalk.red(`Invalid chain "${opts.chain}". Use: tron, bsc, eth`));
+            return;
+          }
+        } else {
+          const chainChoices = [
+            { name: "TRON (TRC20) — $1.50 network fee", value: "tron" },
+            { name: "BSC (BEP20) — $1.00 network fee", value: "bsc" },
+            { name: "Ethereum (ERC20) — $1.00 network fee", value: "eth" },
+          ];
+
+          const resp = await inquirer.prompt([
+            {
+              type: "list",
+              name: "chain",
+              message: "Select payout network:",
+              choices: chainChoices,
+            },
+          ]);
+          chainKey = resp.chain;
+        }
+
+        const selectedChain = chainMap[chainKey];
+
+        // 6. Address resolution
+        let address: string;
+        if (opts.address) {
+          address = opts.address;
+        } else {
+          const account = getAccountFromKey(privateKey);
+          address = account.address;
+        }
+
+        // 7. Fee quote
+        const feeSpinner = ora("Getting fee quote...").start();
+        const { data: feeData } = await api<FeeQuoteResponse>("cards/feeQuote", {
+          body: {
+            charge_type: "CARD_WITHDRAW",
+            card_id: cardId,
+            card_bin: cardBin,
+            amount,
+            chain: selectedChain.chain,
+            card_currency: cardCurrency,
+          },
+          auth: false,
+        });
+        feeSpinner.stop();
+
+        if (feeData?.fee_info) {
+          const info = feeData.fee_info;
+          console.log(chalk.bold("\n  Withdrawal quote:"));
+          console.log(`    Withdraw:       ${chalk.bold(amount)} USDT`);
+          if (info.charge_fee) console.log(`    Fee:            ${info.charge_fee} USDT`);
+          if (info.card_amount) console.log(`    You receive:    ${chalk.green(info.card_amount)} USDT`);
+          console.log(`    Network:        ${selectedChain.display}`);
+          console.log(`    To address:     ${address}`);
+          console.log();
+        }
+
+        // 8. Confirmation
+        if (!opts.yes) {
+          const { confirm } = await inquirer.prompt([
+            {
+              type: "confirm",
+              name: "confirm",
+              message: "Confirm withdrawal?",
+              default: true,
+            },
+          ]);
+
+          if (!confirm) {
+            console.log(chalk.yellow("Cancelled."));
+            return;
+          }
+        }
+
+        // 9. preWithdraw
+        const preSpinner = ora("Creating withdrawal order...").start();
+        const { data: preData } = await api<{
+          order_id: string;
+          confirm_sign_message_template?: string;
+        }>("withdraw/preWithdraw", {
+          body: {
+            card_id: cardId,
+            card_binding_id: bindingId,
+            amount,
+            network: selectedChain.chain,
+            address,
+            currency: cardCurrency,
+            wallet_currency: "USDT",
+            source: "payall-cli",
+          },
+        });
+        preSpinner.stop();
+
+        const orderId = preData.order_id;
+        const messageTemplate = preData.confirm_sign_message_template ||
+          "PAYALL_WITHDRAW_CONFIRM|source={source}|order_id={order_id}|card_binding_id={card_binding_id}|timestamp={timestamp}";
+
+        // 10. Wallet sign
+        const signSpinner = ora("Signing confirmation...").start();
+        const { signature, timestamp } = await signWithdrawConfirm(
+          privateKey,
+          messageTemplate,
+          orderId,
+          parseInt(bindingId, 10),
+          "payall-cli"
+        );
+        signSpinner.stop();
+
+        // 11. Confirm withdrawal
+        const confirmSpinner = ora("Confirming withdrawal...").start();
+        await api("withdraw/confirm", {
+          body: {
+            order_id: orderId,
+            card_binding_id: bindingId,
+            source: "payall-cli",
+            signature,
+            timestamp,
+          },
+        });
+        confirmSpinner.succeed(chalk.green("Withdrawal submitted!"));
+
+        if (opts.json) {
+          console.log(JSON.stringify({
+            status: "submitted",
+            order_id: orderId,
+            amount,
+            chain: selectedChain.chain,
+            address,
+          }, null, 2));
+        } else {
+          console.log(chalk.dim(`  Order ID: ${orderId}`));
+          console.log(chalk.dim(`  USDT will be sent to ${address} on ${selectedChain.chain}`));
+          console.log(chalk.dim("  Check status with: payall cards my"));
+        }
+
+        console.log();
+      } catch (err: unknown) {
+        spinner.fail("Withdrawal failed");
+        if (err instanceof ApiError) {
+          if (String(err.code) === "8009") {
+            console.error(chalk.red(`Insufficient card balance. Current balance: ${formatCurrency(0, "USD")}`));
+            console.error(chalk.dim("Check your balance with: payall cards my"));
+          } else if (String(err.code) === "5000") {
+            console.error(chalk.red("Payment processor error. Please try again later."));
+          } else {
+            console.error(chalk.red(err.message));
+          }
+        } else {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(chalk.red(msg));
+        }
+      }
+    });
+
 }
 
 // --- Helper types and functions ---

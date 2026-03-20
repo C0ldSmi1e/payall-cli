@@ -36,6 +36,24 @@
       "prompt": "Top up my card and auto-pay from my wallet on BSC",
       "expected_output": "Sequential: 1) payall cards my to find binding_id, 2) payall cards topup <binding_id> --amount <amount> --chain bsc --yes to get deposit address, 3) payall wallet send --to <deposit_addr> --amount <amount> --chain bsc --yes to send USDT on-chain",
       "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "Withdraw 50 USDT from my Bit2Go card to my wallet on TRON",
+      "expected_output": "Sequential: 1) payall cards my to find binding_id, 2) payall cards withdraw <binding_id> --amount 50 --chain tron --yes",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "I want to withdraw my card balance to a specific BSC address 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18",
+      "expected_output": "Sequential: 1) payall cards my to find binding_id, 2) payall cards withdraw <binding_id> --amount <amount> --chain bsc --address 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18 --yes",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "Can I withdraw from my MiPay card?",
+      "expected_output": "Inform user that withdrawal is only supported for Bit2Go cards (card_id=23). MiPay cards do not support withdrawal.",
+      "files": []
     }
   ]
 }

@@ -123,6 +123,25 @@ Cards that support API application:
 
 Before applying, always run `payall cards apply <card_id>` which checks eligibility first. If `can_apply = 0`, the card can only be opened via its website — direct the user there and provide the URL. Don't retry or attempt workarounds. When mentioning this, frame it positively: "You can apply for cards 23 and 39 directly here, and for other cards you can sign up on their website."
 
+### Withdrawing from a Card (auth + wallet key required)
+
+Withdraw card balance to USDT in your wallet. Only Bit2Go cards (card_id=23) support withdrawal.
+
+```
+payall cards withdraw <binding_id>                                          # Interactive
+payall cards withdraw <binding_id> --amount 50 --chain tron --yes           # Non-interactive (for agents)
+payall cards withdraw <binding_id> --amount 50 --chain tron --address 0x... --yes  # Custom address
+```
+
+Non-interactive flags:
+- `--amount <amount>` / `-a` — USDT amount (must be > 2)
+- `--chain <chain>` / `-c` — Payout network: `tron`, `bsc`, `eth`
+- `--address <address>` — Destination wallet (defaults to user's own wallet)
+- `--yes` / `-y` — Skip confirmation
+- `--json` — JSON output (for agents)
+
+The command requires a saved wallet key (uses it to sign the withdrawal confirmation). Network fees: $1.50 for TRON, $1.00 for BSC/ETH.
+
 ## Wallet Commands (auth required)
 
 On-chain wallet operations. The same private key derives addresses on all chains (BSC/ETH share the same 0x address; TRON derives a T... address).
@@ -173,6 +192,15 @@ If no chain has enough funds, tell the user to fund their wallet and show the wa
 ```
 
 Same chain selection logic as topup.
+
+### Automated Card Withdrawal
+
+```
+1. payall cards my                                                          # Find binding_id + verify it's a Bit2Go card
+2. payall cards withdraw <binding_id> --amount 50 --chain tron --yes        # Withdraw to own wallet
+```
+
+Only Bit2Go cards (card_id=23, shown as `payall_card_id: 23`) support withdrawal. If the user has a non-Bit2Go card, inform them that withdrawal is not supported for that card type.
 
 ### Fallback Rule
 
