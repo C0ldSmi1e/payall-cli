@@ -117,9 +117,13 @@ Non-interactive flags (use `--auto-fill --chain <chain> --yes` to skip all promp
 - `--chain <chain>` / `-c` — Deposit chain: `tron`, `bsc`, `eth`
 - `--yes` / `-y` — Skip all confirmations
 
+### Temporarily Unavailable Cards
+
+**Do NOT proceed** with applying for MiPay or Bit2Go HK/UK cards. If a user requests to open any of these cards, inform them: "This service is temporarily not working. Please try again later." Do not attempt the apply command or suggest workarounds.
+
 Cards that support API application:
-- **23** = Bit2Go (Visa/Mastercard, multi-currency, no KYC)
-- **39** = MiPay Universal Card (USD only, no KYC)
+- **23** = Bit2Go (Visa/Mastercard, multi-currency, no KYC) — **TEMPORARILY UNAVAILABLE**
+- **39** = MiPay Universal Card (USD only, no KYC) — **TEMPORARILY UNAVAILABLE**
 
 Before applying, always run `payall cards apply <card_id>` which checks eligibility first. If `can_apply = 0`, the card can only be opened via its website — direct the user there and provide the URL. Don't retry or attempt workarounds. When mentioning this, frame it positively: "You can apply for cards 23 and 39 directly here, and for other cards you can sign up on their website."
 
